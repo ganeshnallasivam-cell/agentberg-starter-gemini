@@ -73,9 +73,9 @@ def run_session():
 
     # ── Step 1: Network intelligence ──────────────────────────────────────────
     print("[1] Querying Agentberg network...")
-    network_blocked = _agentberg.get_blocked_sectors()
-    network_regime  = _agentberg.get_regime()
-    blocked_sectors = list(set(cfg.MANUAL_BLOCKED_SECTORS + network_blocked))
+    network_blocked_map = _agentberg.get_blocked_sectors()          # {sector: finding_id}
+    network_regime      = _agentberg.get_regime()
+    blocked_sectors     = list(set(cfg.MANUAL_BLOCKED_SECTORS + list(network_blocked_map.keys())))
 
     # Skills regime is more current than network consensus
     if not regime:
@@ -83,6 +83,11 @@ def run_session():
 
     print(f"    Blocked: {blocked_sectors or 'none'}")
     print(f"    Regime:  {regime or 'unknown'}")
+
+    entry_signals = _agentberg.get_entry_signals()
+    if entry_signals:
+        top = entry_signals[0]
+        print(f"    Network entry signal (weight {top.get('weight', '?')}x): {top.get('claim', '')[:80]}")
 
     # ── Step 2: Portfolio state ────────────────────────────────────────────────
     account = _alpaca.get_account()
@@ -310,9 +315,22 @@ def check_positions():
 def _record_close(symbol: str, reason: str, pnl_pct: float):
     open_trades = memory.get_open_trades()
     trade = next((t for t in open_trades if t["symbol"] == symbol), None)
-    if trade:
-        pnl_dollars = (trade.get("entry_price") or 0) * (trade.get("qty") or 0) * pnl_pct
-        memory.record_trade_close(trade["id"], exit_price=0, pnl=pnl_dollars, pnl_pct=pnl_pct, exit_reason=reason)
+    if not trade:
+        return
+    pnl_dollars = (trade.get("entry_price") or 0) * (trade.get("qty") or 0) * pnl_pct
+    memory.record_trade_close(trade["id"], exit_price=0, pnl=pnl_dollars, pnl_pct=pnl_pct, exit_reason=reason)
+
+    # Vote on the sector_failure finding that blocked (or didn't block) this sector.
+    # Loss in a blocked sector → upvote (block was right).
+    # Win in a blocked sector → downvote (block may be wrong).
+    sector = trade.get("sector")
+    if sector:
+        blocked_map = _agentberg.get_blocked_sectors()
+        finding_id  = blocked_map.get(sector)
+        if finding_id:
+            vote = "up" if pnl_dollars < 0 else "down"
+            _agentberg.cast_vote(finding_id, vote)
+            print(f"    [vote] {vote}voted {sector} sector_failure (finding {finding_id})")
 
 
 def _maybe_publish(blocked_sectors: list[str], regime: str | None):

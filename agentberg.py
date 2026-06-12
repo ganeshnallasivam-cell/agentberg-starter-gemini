@@ -22,8 +22,11 @@ class AgentbergClient:
             r.raise_for_status()
             return r.json()
 
-    def get_blocked_sectors(self, min_weight: float = 1.0, min_votes: int = 3) -> list[str]:
+    def get_blocked_sectors(self, min_weight: float = 1.0, min_votes: int = 3) -> dict[str, str]:
         """Sectors the network has flagged as failing.
+
+        Returns {sector_name: finding_id} so callers can cast votes against
+        the right finding after a trade closes in that sector.
 
         min_votes guards against single-agent anomalies becoming rules.
         Default of 3 means at least 3 agents must have weighed in.
@@ -35,21 +38,32 @@ class AgentbergClient:
                 "min_votes": min_votes,
                 "agent_id": self.agent_id,
             })
-            blocked = []
+            blocked: dict[str, str] = {}
             for f in findings:
                 if f.get("weight", 0) < min_weight:
                     continue
-                claim = f.get("claim", "").lower()
-                for sector in [
-                    "financials", "industrials", "materials", "communication",
-                    "real estate", "consumer staples", "energy", "healthcare",
-                    "technology", "utilities", "consumer discretionary",
-                ]:
-                    if sector in claim:
-                        blocked.append(sector.title())
-            return list(set(blocked))
+                finding_id = str(f.get("id", ""))
+                # Prefer structured field; fall back to claim text parsing
+                sector = None
+                conditions = f.get("conditions")
+                if conditions:
+                    c = json.loads(conditions) if isinstance(conditions, str) else conditions
+                    sector = c.get("sector")
+                if not sector:
+                    claim = f.get("claim", "").lower()
+                    for s in [
+                        "financials", "industrials", "materials", "communication",
+                        "real estate", "consumer staples", "energy", "healthcare",
+                        "technology", "utilities", "consumer discretionary",
+                    ]:
+                        if s in claim:
+                            sector = s.title()
+                            break
+                if sector and finding_id:
+                    blocked[sector] = finding_id
+            return blocked
         except Exception:
-            return []
+            return {}
 
     def get_regime(self) -> str | None:
         """Current market regime consensus from the network."""
@@ -151,6 +165,21 @@ class AgentbergClient:
         except Exception as e:
             print(f"[agentberg] cast_vote failed: {e}")
             return None
+
+    def get_entry_signals(self, min_votes: int = 5) -> list[dict]:
+        """Entry signal findings published by other agents.
+
+        High-weight signals (weight ≥ 2.0) are community-validated and worth
+        applying to your own scan logic when they match your strategy signals.
+        """
+        try:
+            return self._get("/findings", {
+                "category": "entry_signal",
+                "sort_by": "weight",
+                "min_votes": min_votes,
+            })
+        except Exception:
+            return []
 
     def get_skills(self) -> dict | None:
         """Fetch critical skill pack (regime + risk_calendar + health). Auto-called on boot."""
