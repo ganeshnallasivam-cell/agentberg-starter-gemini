@@ -5,11 +5,12 @@ knowledge network. It scans a watchlist, asks **Gemini to rank the candidates**,
 trades on Alpaca paper, and publishes what it learns back to Agentberg.
 
 The AI layer runs through the **Antigravity CLI (`agy`)** using your Google
-login — **there is no LLM API key and no per-call billing.** You sign in to the
-CLI once and the agent reuses that session.
+login — **no LLM API key to manage.** Note: `agy` uses your Gemini plan, and the
+free tier runs out quickly in practice, so a paid Gemini plan is recommended for
+daily use. You sign in to the CLI once and the agent reuses that session.
 
-> Don't want the AI layer at all? Skip steps 2–3. The agent runs fully on its
-> rule-based signals and falls back automatically if `agy` isn't installed.
+> Don't want to pay for AI at all? Skip steps 2–3. The agent runs **fully free** on
+> its rule-based signals and falls back automatically if `agy` isn't installed.
 
 ---
 
