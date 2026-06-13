@@ -106,3 +106,35 @@ def maybe_upload(client, agent_id: str, token: str | None = None) -> dict:
     if payload is None:
         return {"status": "skipped_no_trades"}
     return client.upload_knowledge(payload, token)
+
+
+# ── Pull-to-review (the download side) ──────────────────────────────────────────
+# This kit's version. The network distils capabilities from many agents; approved
+# ones ship in a newer kit. We only ever NOTIFY — adopting is a deliberate `git pull`
+# the operator reviews. A running, money-touching agent is never silently rewritten.
+KIT_VERSION = "1.1.0"
+
+
+def _ver(s: str) -> tuple:
+    try:
+        return tuple(int(p) for p in str(s).split("."))
+    except (ValueError, AttributeError):
+        return (0,)
+
+
+def check_kit_update(client) -> dict:
+    """Ask Agentberg for the latest kit version. Returns the changelog of anything
+    newer than KIT_VERSION (review-only) — never applies it."""
+    try:
+        manifest = client._get("/kit/manifest")
+    except Exception as e:
+        return {"status": "unknown", "error": str(e)}
+    latest = manifest.get("version", "")
+    if _ver(latest) > _ver(KIT_VERSION):
+        changes = [
+            e for e in manifest.get("changelog", [])
+            if _ver(e.get("version", "")) > _ver(KIT_VERSION)
+        ]
+        return {"status": "update_available", "current": KIT_VERSION,
+                "latest": latest, "changes": changes}
+    return {"status": "up_to_date", "version": KIT_VERSION}

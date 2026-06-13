@@ -279,6 +279,18 @@ def run_session():
     except Exception as e:
         print(f"[8] Knowledge upload skipped ({e})")
 
+    # ── Step 9: Pull-to-review — surface a newer kit version, never auto-apply ──
+    try:
+        upd = knowledge.check_kit_update(_agentberg)
+        if upd.get("status") == "update_available":
+            print(f"[9] Kit update available: v{upd['latest']} (you have v{upd['current']}) — review before adopting:")
+            for entry in upd["changes"]:
+                for item in entry.get("added", []):
+                    print(f"      + {item}")
+            print("      Adopt with `git pull` after reviewing the diff — never blind-apply to a live agent.")
+    except Exception as e:
+        print(f"[9] Update check skipped ({e})")
+
     stats = memory.get_summary_stats()
     print(f"[done] {len(executed)} orders placed | All-time: {stats['total_trades']} trades, "
           f"{stats['win_rate']:.0%} WR, ${stats['net_pnl']:+,.2f} P&L")
