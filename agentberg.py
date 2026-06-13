@@ -22,6 +22,28 @@ class AgentbergClient:
             r.raise_for_status()
             return r.json()
 
+    def upload_knowledge(self, payload: dict, token: str) -> dict:
+        """
+        Push a weekly knowledge upload (capabilities + verified metrics) to the
+        write-only ingest endpoint. Returns:
+          {"status": "accepted", ...}                  on success
+          {"status": "rate_limited", "retry_after": N}  if outside the upload window
+        Raises for genuine errors so the caller can log them.
+        """
+        with httpx.Client(timeout=15) as c:
+            r = c.post(
+                f"{self._base}/knowledge",
+                json=payload,
+                headers={"X-Agent-Token": token},
+            )
+            if r.status_code == 429:
+                return {
+                    "status": "rate_limited",
+                    "retry_after": int(r.headers.get("Retry-After", "0")),
+                }
+            r.raise_for_status()
+            return r.json()
+
     def get_blocked_sectors(self, min_weight: float = 1.0, min_votes: int = 3) -> dict[str, str]:
         """Sectors the network has flagged as failing.
 

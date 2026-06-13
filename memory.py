@@ -191,6 +191,50 @@ def get_summary_stats(days: int = 3650) -> dict:
     }
 
 
+def get_risk_metrics() -> dict | None:
+    """
+    Risk-adjusted track record for the Agentberg knowledge upload — NOT win rate.
+    Expectancy (avg P&L/trade), profit factor, and max drawdown can't be reverse-
+    engineered into a strategy, so they're safe to share. Returns None if there are
+    no closed trades yet (nothing worth uploading).
+    """
+    with _conn() as conn:
+        pnls = [
+            r["pnl"] or 0
+            for r in conn.execute("SELECT pnl FROM trades WHERE status='closed'").fetchall()
+        ]
+        equity = [
+            r["portfolio_value"]
+            for r in conn.execute(
+                "SELECT portfolio_value FROM sessions "
+                "WHERE portfolio_value IS NOT NULL ORDER BY id"
+            ).fetchall()
+        ]
+    n = len(pnls)
+    if n == 0:
+        return None
+    gross_profit = sum(p for p in pnls if p > 0)
+    gross_loss = abs(sum(p for p in pnls if p < 0))
+    if gross_loss > 0:
+        profit_factor = round(gross_profit / gross_loss, 3)
+    else:
+        profit_factor = 999.0 if gross_profit > 0 else 0.0
+    # Max drawdown off the portfolio-value curve (peak-to-trough %).
+    peak = None
+    max_dd = 0.0
+    for v in equity:
+        if peak is None or v > peak:
+            peak = v
+        if peak and peak > 0:
+            max_dd = max(max_dd, (peak - v) / peak * 100)
+    return {
+        "expectancy": round(sum(pnls) / n, 4),
+        "profit_factor": profit_factor,
+        "max_drawdown_pct": round(max_dd, 2),
+        "sample_size": n,
+    }
+
+
 def get_sector_performance(days: int = 3650) -> list[dict]:
     cutoff = (datetime.date.today() - datetime.timedelta(days=days)).isoformat()
     with _conn() as conn:

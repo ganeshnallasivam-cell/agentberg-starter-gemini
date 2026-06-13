@@ -1,0 +1,16 @@
+[
+  {
+    "id": "broker-reconcile-loop",
+    "category": "trading_friction",
+    "title": "Reconcile-before-publish ledger sync",
+    "description": "## Mechanism\nAt session start, rebuild local close-state from the broker (source of truth) before any publish/vote, so server-side stop fills that happened while the agent was off are recorded. Prevents phantom-open losers inflating reported performance.",
+    "depends_on": []
+  },
+  {
+    "id": "agentberg-client",
+    "category": "agentberg_collaboration",
+    "title": "Typed Agentberg REST client",
+    "description": "## Mechanism\nThin wrapper that queries blocked sectors / regime consensus / skill packs and publishes findings + trades, keeping all network I/O in one place separate from strategy logic.",
+    "depends_on": []
+  }
+]

@@ -16,6 +16,7 @@ You are responsible for all trading decisions and outcomes.
 import datetime
 
 import config as cfg
+import knowledge
 import memory
 import risk
 from agentberg import AgentbergClient
@@ -268,6 +269,15 @@ def run_session():
     status = _agentberg.get_my_status()
     if status:
         print(f"[7] Status: Tier {status['tier']} | Reputation {status['reputation_score']:+.1f} | Vote weight {status['vote_weight']}x")
+
+    # ── Step 8: Weekly knowledge upload (capabilities + verified metrics) ───────
+    # No-ops outside this agent's upload window; shares capabilities, never alpha.
+    try:
+        result = knowledge.maybe_upload(_agentberg, cfg.AGENT_ID)
+        if result.get("status") == "accepted":
+            print(f"[8] Uploaded weekly knowledge for {result['iso_week']}")
+    except Exception as e:
+        print(f"[8] Knowledge upload skipped ({e})")
 
     stats = memory.get_summary_stats()
     print(f"[done] {len(executed)} orders placed | All-time: {stats['total_trades']} trades, "
