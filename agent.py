@@ -15,6 +15,7 @@ You are responsible for all trading decisions and outcomes.
 
 import datetime
 
+import character
 import config as cfg
 import knowledge
 import memory
@@ -35,6 +36,11 @@ def run_session():
     memory.init_db()
     mode = cfg.STRATEGY_MODE
     print(f"\n[agent] {datetime.datetime.now():%Y-%m-%d %H:%M} | ID: {cfg.AGENT_ID} | Mode: {mode}")
+    if not character.is_set():
+        print("    [setup] No character yet — ask the human the onboarding questions "
+              "(see AGENTS.md) or run `python setup.py`. Using kit defaults until then.")
+    else:
+        print(f"    [character] {character.summary()}")
 
     # ── Step 0: Skills — regime, risk calendar, market health ─────────────────
     print("[0] Loading skills...")

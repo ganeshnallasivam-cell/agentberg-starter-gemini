@@ -73,3 +73,55 @@ MANUAL_BLOCKED_SECTORS: list[str] = []
 
 # Regimes to sit out entirely. "bear" means no new longs.
 BLOCKED_REGIMES: list[str] = ["bear"]
+
+# ── Character overlay ──────────────────────────────────────────────────────────
+# If onboarding is complete (character.json), apply the operator's persona ON TOP of
+# the defaults above. Anything the human deferred keeps the kit default. The agent
+# operates by this until the human asks to change it. See character.py / setup.py.
+try:
+    import character as _character
+    _c = _character.load()
+except Exception:
+    _c = {}
+
+# Descriptive persona (kept for logging + future AI-ranking context).
+GOAL: str = _c.get("goal", "")
+TIME_HORIZON: str = _c.get("time_horizon", "")
+RISK_TOLERANCE: str = _c.get("risk_tolerance", "")
+PREFERRED_SECTORS: list[str] = _c.get("preferred_sectors", []) or []
+MANDATE: str = _c.get("mandate", "")
+
+if _c:
+    _instr = _c.get("instruments")
+    if _instr == "equity":
+        STRATEGY_MODE = "equity"
+    elif _instr in ("options", "both"):
+        STRATEGY_MODE = "premium_buyer"
+
+    if _c.get("max_loss_per_trade_pct") is not None:
+        EQUITY_STOP_LOSS_PCT = float(_c["max_loss_per_trade_pct"]) / 100.0
+    if _c.get("take_profit_pct") is not None:
+        TAKE_PROFIT_PCT = float(_c["take_profit_pct"]) / 100.0
+    if _c.get("max_position_pct") is not None:
+        MAX_POSITION_PCT = float(_c["max_position_pct"]) / 100.0
+    if _c.get("max_positions") is not None:
+        MAX_POSITIONS = int(_c["max_positions"])
+    if _c.get("trade_in_bear") is True:
+        BLOCKED_REGIMES = [r for r in BLOCKED_REGIMES if r != "bear"]
+
+    # Never-trade list: sector names become blocked sectors; everything else is
+    # treated as a ticker and removed from the watchlist entirely.
+    for _item in _c.get("must_exclude", []):
+        _s = _item.strip()
+        if not _s:
+            continue
+        if _s.title() in WATCHLIST:
+            MANUAL_BLOCKED_SECTORS = list(set(MANUAL_BLOCKED_SECTORS + [_s.title()]))
+        else:
+            for _sec in WATCHLIST:
+                WATCHLIST[_sec] = [t for t in WATCHLIST[_sec] if t.upper() != _s.upper()]
+
+    # Always-watch tickers the human insisted on.
+    _incl = [x.strip().upper() for x in _c.get("must_include", []) if x.strip()]
+    if _incl:
+        WATCHLIST["Preferred"] = sorted(set(WATCHLIST.get("Preferred", []) + _incl))

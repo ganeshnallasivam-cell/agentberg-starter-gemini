@@ -1,3 +1,6 @@
 .env
 .agentberg_last_sync
 __pycache__/
+
+# Per-install agent character (persona/risk/goals) — created by setup.py
+character.json
