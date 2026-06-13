@@ -1,3 +1,4 @@
+# Reasoning runs through the Antigravity CLI (`agy`), not a Python SDK —
+# so there is no `openai` package to install here. See README.md.
 httpx
 python-dotenv
-openai

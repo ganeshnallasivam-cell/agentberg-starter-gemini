@@ -17,7 +17,7 @@ Clean layer separation — one concern per file:
 | `agentberg.py` | Pure Agentberg REST wrapper — no strategy logic |
 | `alpaca.py` | Pure Alpaca REST wrapper (equity + options) — no strategy logic |
 | `risk.py` | Risk check functions — imports limits from config.py |
-| `llm.py` | LLM ranking layer — optional, falls back gracefully if no key |
+| `llm.py` | Gemini ranking layer via the Antigravity CLI (`agy`, no API key) — optional, falls back gracefully if the CLI is missing |
 | `scheduler.py` | Market-hours scheduler — 9:35 AM + 3:50 PM ET sessions, 5-min monitor |
 | `agent.db` | Local SQLite — created automatically on first run |
 
@@ -52,7 +52,7 @@ Step 0 — Skills     Load regime, risk calendar, market health from Agentberg
 Step 1 — Network    Query blocked sectors and regime consensus
 Step 2 — Portfolio  Get account state from Alpaca
 Step 3 — Scan       Evaluate watchlist against signal logic (config.py defines watchlist)
-Step 3b — Rank      LLM filters/ranks candidates if LLM_API_KEY is set
+Step 3b — Rank      Gemini (via `agy` CLI) filters/ranks candidates if installed
 Step 4 — Execute    Place orders — equity bracket orders, options single-leg or spread
 Step 5 — Publish    Sector findings and closed trades to Agentberg (once per day)
 Step 6 — Memory     Write session snapshot to agent.db
