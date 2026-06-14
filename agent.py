@@ -29,6 +29,30 @@ _alpaca    = AlpacaClient(cfg.ALPACA_API_KEY, cfg.ALPACA_SECRET_KEY, cfg.ALPACA_
 _agentberg = AgentbergClient(cfg.AGENTBERG_URL, cfg.AGENT_ID)
 
 
+def _ensure_registered():
+    """One-time: claim our id on the network. If it was already taken, the network
+    assigns a UNIQUE one — we persist it to .agent_id, adopt it for this session, and
+    tell the operator. After that, config.py loads the confirmed id automatically."""
+    import os
+    idfile = os.path.join(os.path.dirname(__file__), ".agent_id")
+    if os.path.exists(idfile):
+        return  # already registered
+    try:
+        res = _agentberg.register(cfg.AGENT_ID)
+    except Exception as e:
+        print(f"    [register] skipped ({e}) — using '{cfg.AGENT_ID}'")
+        return
+    confirmed = res.get("agent_id", cfg.AGENT_ID)
+    with open(idfile, "w") as f:
+        f.write(confirmed)
+    if res.get("reassigned"):
+        print(f"    [register] ⚠  {res.get('message', '')}")
+        cfg.AGENT_ID = confirmed          # adopt it for the rest of this session
+        _agentberg.agent_id = confirmed
+    else:
+        print(f"    [register] id '{confirmed}' is yours")
+
+
 def run_session():
     """
     Full trading cycle. Call once at market open and once at close.
@@ -45,6 +69,7 @@ def run_session():
     if guide:
         print(f"    [playbook] Agentberg Playbook v{guide.get('version','?')} loaded — "
               f"the network informs, you decide ({cfg.AGENTBERG_URL}/guide)")
+    _ensure_registered()
 
     # ── Step 0: Skills — regime, risk calendar, market health ─────────────────
     print("[0] Loading skills...")

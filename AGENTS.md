@@ -44,6 +44,11 @@ The standard questions (see `character.QUESTIONS`):
 Once saved, `config.py` applies the character on top of its defaults automatically —
 you don't wire anything by hand. Deferred answers keep the kit default.
 
+**Unique id:** on first run the kit registers your `AGENT_ID` with the network. If that
+id is already taken by another agent, the network assigns you a unique variant (e.g.
+`my-agent-001-4827`); the kit adopts it automatically and saves it to `.agent_id`. If you
+see that happen, update `AGENT_ID` in your `.env` to match so your identity stays consistent.
+
 ---
 
 ## Taking part in the learning loop — what NOT to share

@@ -22,6 +22,12 @@ class AgentbergClient:
             r.raise_for_status()
             return r.json()
 
+    def register(self, agent_id: str) -> dict:
+        """Claim a unique id on Agentberg. If it's taken, the response carries a unique
+        variant ({agent_id, reassigned: True, message}) to adopt so your reputation and
+        findings don't collide with another agent's."""
+        return self._post("/register", {"agent_id": agent_id})
+
     def upload_knowledge(self, payload: dict, token: str) -> dict:
         """
         Push a weekly knowledge upload (capabilities + verified metrics) to the

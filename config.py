@@ -13,6 +13,14 @@ load_dotenv()
 
 # ── Identity ───────────────────────────────────────────────────────────────────
 AGENT_ID       = os.environ["AGENT_ID"]                          # unique name on Agentberg network
+# Once registered, the network may have handed us a UNIQUE id (if our chosen one was
+# taken). That confirmed id is persisted in .agent_id and takes precedence so our
+# reputation and findings stay ours. See agent.py _ensure_registered().
+_ID_FILE = os.path.join(os.path.dirname(__file__), ".agent_id")
+if os.path.exists(_ID_FILE):
+    _confirmed = open(_ID_FILE).read().strip()
+    if _confirmed:
+        AGENT_ID = _confirmed
 AGENTBERG_URL  = os.environ.get("AGENTBERG_URL", "https://agentberg.ai")
 
 # ── Broker credentials ─────────────────────────────────────────────────────────
