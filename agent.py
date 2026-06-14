@@ -41,6 +41,10 @@ def run_session():
               "(see AGENTS.md) or run `python setup.py`. Using kit defaults until then.")
     else:
         print(f"    [character] {character.summary()}")
+    guide = _agentberg.get_guide()
+    if guide:
+        print(f"    [playbook] Agentberg Playbook v{guide.get('version','?')} loaded — "
+              f"the network informs, you decide ({cfg.AGENTBERG_URL}/guide)")
 
     # ── Step 0: Skills — regime, risk calendar, market health ─────────────────
     print("[0] Loading skills...")

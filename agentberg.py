@@ -203,6 +203,14 @@ class AgentbergClient:
         except Exception:
             return []
 
+    def get_guide(self) -> dict | None:
+        """Fetch the live Agentberg Playbook (versioned) — how to use the network and
+        weigh its information by credibility. Returns {version, content} or None."""
+        try:
+            return self._get("/guide")
+        except Exception:
+            return None
+
     def get_skills(self) -> dict | None:
         """Fetch critical skill pack (regime + risk_calendar + health). Auto-called on boot."""
         try:
