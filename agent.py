@@ -199,6 +199,16 @@ def run_session():
         sector    = c["sector"]
         direction = c["direction"]
 
+        # Trade rationale (PRIVATE to the operator) — assembled from the REAL signal +
+        # the AI's recorded reason, captured NOW so it can't be hallucinated after the
+        # outcome is known. Recorded with the trade; reviewed via `python journal.py`.
+        thesis = f"{direction} {ticker} [{sector}] — {c.get('day_change', 0):+.1%} momentum"
+        if c.get("reason"):
+            thesis += f"; AI: {c['reason']}"
+        expected_pct = cfg.TAKE_PROFIT_PCT
+        stop_pct = cfg.EQUITY_STOP_LOSS_PCT if mode == "equity" else cfg.OPTION_STOP_LOSS_PCT
+        signal = {"day_change": c.get("day_change"), "direction": direction}
+
         if mode == "equity":
             pos_value = equity * effective_position_pct
             allowed, reason = risk.check_equity(
@@ -212,7 +222,8 @@ def run_session():
                 side       = "buy" if direction == "bullish" else "sell"
                 stop_price = c["price"] * (1 - cfg.EQUITY_STOP_LOSS_PCT) if side == "buy" else None
                 order      = _alpaca.submit_order(ticker, qty, side, stop_loss_price=stop_price)
-                trade_id   = memory.record_trade_open(ticker, sector, c["price"], qty)
+                trade_id   = memory.record_trade_open(ticker, sector, c["price"], qty,
+                                signal_data=signal, thesis=thesis, expected_pct=expected_pct, stop_pct=stop_pct)
                 print(f"    ORDER {ticker}: {side} ×{qty} @ ~${c['price']:.2f}  stop=${stop_price:.2f if stop_price else 'none'}")
                 executed.append({**c, "qty": qty, "order_id": order["id"], "memory_id": trade_id})
                 open_count += 1
@@ -251,7 +262,8 @@ def run_session():
                 continue
             try:
                 order    = _alpaca.submit_option_single(contract["symbol"], qty=1, side="buy", limit_price=limit_price)
-                trade_id = memory.record_trade_open(ticker, sector, limit_price, 1, trade_type=f"long_{option_type}")
+                trade_id = memory.record_trade_open(ticker, sector, limit_price, 1, trade_type=f"long_{option_type}",
+                                signal_data=signal, thesis=thesis, expected_pct=expected_pct, stop_pct=stop_pct)
                 print(f"    ORDER {ticker} {option_type.upper()} {contract['expiration_date']} ${contract['strike_price']} δ={delta:.2f} @ ${limit_price:.2f}")
                 executed.append({**c, "symbol": contract["symbol"], "premium": limit_price, "memory_id": trade_id})
                 open_count += 1
@@ -283,7 +295,8 @@ def run_session():
                 continue
             try:
                 order    = _alpaca.submit_option_spread(buy_leg["symbol"], sell_leg["symbol"], qty=1, net_debit=net_debit)
-                trade_id = memory.record_trade_open(ticker, sector, net_debit, 1, trade_type=f"{option_type}_spread")
+                trade_id = memory.record_trade_open(ticker, sector, net_debit, 1, trade_type=f"{option_type}_spread",
+                                signal_data=signal, thesis=thesis, expected_pct=expected_pct, stop_pct=stop_pct)
                 print(f"    SPREAD {ticker} {option_type.upper()} ${float(buy_leg['strike_price']):.0f}/${float(sell_leg['strike_price']):.0f} debit=${net_debit:.2f}")
                 executed.append({**c, "memory_id": trade_id, "net_debit": net_debit})
                 open_count += 1
@@ -381,6 +394,8 @@ def _record_close(symbol: str, reason: str, pnl_pct: float):
         return
     pnl_dollars = (trade.get("entry_price") or 0) * (trade.get("qty") or 0) * pnl_pct
     memory.record_trade_close(trade["id"], exit_price=0, pnl=pnl_dollars, pnl_pct=pnl_pct, exit_reason=reason)
+    # Transparency to the operator — the recorded thesis is now checked against reality.
+    print(f"    [journal] {symbol} closed {pnl_pct:+.1%} ({reason}) — review with `python journal.py`")
 
     # Vote on the sector_failure finding that blocked (or didn't block) this sector.
     # Loss in a blocked sector → upvote (block was right).

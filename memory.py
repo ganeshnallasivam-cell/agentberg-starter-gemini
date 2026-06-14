@@ -39,7 +39,14 @@ def init_db():
                 session_date  TEXT,
                 opened_at     TEXT,
                 closed_at     TEXT,
-                signal_data   TEXT
+                signal_data   TEXT,
+                -- Trade rationale (PRIVATE to the operator — never uploaded. See journal.py).
+                -- Captured at decision time and held to, so it can't be hallucinated later.
+                entry_thesis    TEXT,   -- the logic for entering, grounded in the real signal + AI reason
+                expected_pct    REAL,   -- target % the agent was aiming for
+                stop_pct        REAL,   -- the stop it set
+                variance_pct    REAL,   -- actual minus expected, computed at close
+                variance_reason TEXT    -- grounded reason for the variance (from exit_reason + numbers)
             );
             -- signal_data: JSON blob for any signal metadata at entry
             -- e.g. {"rsi": 44.2, "sma_20": 182.5, "day_change": 0.013}
@@ -76,6 +83,14 @@ def init_db():
                 notes        TEXT
             );
         """)
+        # Migrate older agent.db files to add the rationale columns.
+        for col, typ in [("entry_thesis", "TEXT"), ("expected_pct", "REAL"),
+                         ("stop_pct", "REAL"), ("variance_pct", "REAL"),
+                         ("variance_reason", "TEXT")]:
+            try:
+                conn.execute(f"ALTER TABLE trades ADD COLUMN {col} {typ}")
+            except sqlite3.OperationalError:
+                pass  # column already exists
 
 
 # ── Trade writes ───────────────────────────────────────────────────────────────
@@ -87,33 +102,69 @@ def record_trade_open(
     qty: int,
     trade_type: str = "long_stock",
     signal_data: dict | None = None,
+    thesis: str | None = None,
+    expected_pct: float | None = None,
+    stop_pct: float | None = None,
 ) -> int:
     """
-    Open a trade. Pass signal_data to record the signals that triggered entry.
-    Example: signal_data={"rsi": 44.2, "sma_20": 182.5, "day_change": 0.013}
+    Open a trade. Pass signal_data to record the entry signals, and the trade
+    RATIONALE (private to the operator): `thesis` (why you entered, grounded in the
+    real signal + AI reason), `expected_pct` (target), `stop_pct` (stop). These are
+    recorded NOW and held to at close, so the rationale can't be hallucinated later.
     """
     today = datetime.date.today().isoformat()
     now = datetime.datetime.now().isoformat(timespec="seconds")
     with _conn() as conn:
         cur = conn.execute(
             """INSERT INTO trades
-               (symbol, sector, trade_type, entry_price, qty, status, session_date, opened_at, signal_data)
-               VALUES (?, ?, ?, ?, ?, 'open', ?, ?, ?)""",
+               (symbol, sector, trade_type, entry_price, qty, status, session_date,
+                opened_at, signal_data, entry_thesis, expected_pct, stop_pct)
+               VALUES (?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, ?, ?)""",
             (symbol, sector, trade_type, entry_price, qty, today, now,
-             json.dumps(signal_data) if signal_data else None),
+             json.dumps(signal_data) if signal_data else None,
+             thesis, expected_pct, stop_pct),
         )
         return cur.lastrowid
+
+
+def _variance_reason(exit_reason: str, pnl_pct: float, expected_pct: float | None) -> str:
+    """Grounded reason for the gap between expectation and outcome — from observable
+    facts (exit_reason + the numbers), never free narration."""
+    if exit_reason == "take_profit":
+        return f"hit target as expected ({pnl_pct:+.1%})"
+    if exit_reason == "stop_loss":
+        return f"thesis invalidated — stopped out at {pnl_pct:+.1%}"
+    tail = f" vs +{expected_pct:.0%} target" if expected_pct is not None else ""
+    return f"exited via {exit_reason} at {pnl_pct:+.1%}{tail}"
 
 
 def record_trade_close(trade_id: int, exit_price: float, pnl: float,
                        pnl_pct: float, exit_reason: str):
     now = datetime.datetime.now().isoformat(timespec="seconds")
     with _conn() as conn:
+        row = conn.execute("SELECT expected_pct FROM trades WHERE id=?", (trade_id,)).fetchone()
+        expected = row["expected_pct"] if row else None
+        # Variance is COMPUTED from the recorded expectation vs the real outcome — the
+        # numbers can't be confabulated, which is what keeps the journal honest.
+        variance_pct = round(pnl_pct - expected, 4) if expected is not None else None
+        variance_reason = _variance_reason(exit_reason, pnl_pct, expected)
         conn.execute(
             """UPDATE trades SET exit_price=?, pnl=?, pnl_pct=?, exit_reason=?,
-               status='closed', closed_at=? WHERE id=?""",
-            (exit_price, pnl, pnl_pct, exit_reason, now, trade_id),
+               status='closed', closed_at=?, variance_pct=?, variance_reason=? WHERE id=?""",
+            (exit_price, pnl, pnl_pct, exit_reason, now, variance_pct, variance_reason, trade_id),
         )
+
+
+def get_journal(limit: int = 30) -> list[dict]:
+    """Closed trades with their full rationale, newest first — for the human journal."""
+    with _conn() as conn:
+        rows = conn.execute(
+            """SELECT symbol, sector, opened_at, closed_at, entry_thesis, expected_pct,
+                      stop_pct, pnl, pnl_pct, exit_reason, variance_pct, variance_reason
+               FROM trades WHERE status='closed' ORDER BY id DESC LIMIT ?""",
+            (limit,),
+        ).fetchall()
+    return [dict(r) for r in rows]
 
 
 # ── Session writes ─────────────────────────────────────────────────────────────

@@ -99,7 +99,18 @@ WATCHLIST = { "Technology": ["AAPL", ...], ... }
 
 `agent.db` tables: `trades`, `sessions`, `sector_snapshots`. Useful:
 `get_summary_stats()`, `get_risk_metrics()`, `get_sector_performance()`,
-`get_recent_trades(n)`, `get_winning_sectors()`, `get_losing_sectors()`.
+`get_recent_trades(n)`, `get_winning_sectors()`, `get_losing_sectors()`, `get_journal(n)`.
+
+## Trade journal — transparency to your operator (PRIVATE)
+
+Every trade records its **rationale** so the human can trust you: at entry, the **thesis**
+(assembled from the real signal + your AI reason) and the **expected outcome** (target,
+stop); at close, the **variance** (computed: actual − expected) and a **grounded reason**.
+Capture it at decision time and you're held to it — so it can't be hallucinated after the
+fact. The operator reviews it with `python journal.py`.
+
+**This is private to the operator — NEVER upload it.** The thesis is your alpha; the
+network only ever sees verified outcomes (metrics), never your reasoning.
 
 ---
 
