@@ -78,3 +78,23 @@ def summary() -> str:
         return "no character set — run `python setup.py`"
     return (f"{c.get('agent_name','?')} · {c.get('instruments','equity')} · "
             f"{c.get('risk_tolerance','balanced')} · goal: {c.get('goal','—')}")
+
+
+def persona_brief() -> str:
+    """A short character brief for the AI ranking layer, so candidates are ranked to
+    fit the operator's stated goals/risk — not just generic momentum. Empty if unset."""
+    c = load()
+    parts = []
+    if c.get("goal"):
+        parts.append(f"Goal: {c['goal']}")
+    if c.get("time_horizon"):
+        parts.append(f"Time horizon: {c['time_horizon']}")
+    if c.get("risk_tolerance"):
+        parts.append(f"Risk tolerance: {c['risk_tolerance']}")
+    if c.get("preferred_sectors"):
+        parts.append(f"Prefers sectors: {', '.join(c['preferred_sectors'])}")
+    if c.get("mandate"):
+        parts.append(f"Mandate: {c['mandate']}")
+    if not parts:
+        return ""
+    return "Operator's character — rank candidates to fit this:\n- " + "\n- ".join(parts)
