@@ -82,13 +82,18 @@ def run_session():
     print("[1] Querying Agentberg network...")
     network_blocked_map = _agentberg.get_blocked_sectors()          # {sector: finding_id}
     network_regime      = _agentberg.get_regime()
-    blocked_sectors     = list(set(cfg.MANUAL_BLOCKED_SECTORS + list(network_blocked_map.keys())))
+    # Agentberg INFORMS, it does not DECIDE. Network blocked-sectors are ADVISORY —
+    # passed into AI ranking so the agent weighs them, never a hard skip. Only the
+    # operator's OWN blocks bind (that's the human deciding, not the network).
+    network_blocked = list(network_blocked_map.keys())              # advisory
+    blocked_sectors = list(cfg.MANUAL_BLOCKED_SECTORS)              # binding (operator's rule)
 
     # Skills regime is more current than network consensus
     if not regime:
         regime = network_regime
 
-    print(f"    Blocked: {blocked_sectors or 'none'}")
+    print(f"    Your blocks (binding):    {blocked_sectors or 'none'}")
+    print(f"    Network flags (advisory): {network_blocked or 'none'}")
     print(f"    Regime:  {regime or 'unknown'}")
 
     entry_signals = _agentberg.get_entry_signals()
@@ -111,7 +116,7 @@ def run_session():
 
     for sector, tickers in cfg.WATCHLIST.items():
         if sector in blocked_sectors:
-            print(f"    SKIP {sector}: blocked by network")
+            print(f"    SKIP {sector}: blocked by your own rules")
             continue
 
         for ticker in tickers:
@@ -153,7 +158,7 @@ def run_session():
     print(f"    {len(candidates)} candidate(s) before LLM filter")
 
     # ── Step 3b: LLM ranking (optional) ───────────────────────────────────────
-    candidates = rank_candidates(candidates, regime, risk_level, health_label, blocked_sectors)
+    candidates = rank_candidates(candidates, regime, risk_level, health_label, network_blocked)
     candidates = candidates[:cfg.MAX_NEW_PER_CYCLE]
 
     # ── Step 4: Execute ────────────────────────────────────────────────────────

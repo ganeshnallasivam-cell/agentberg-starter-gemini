@@ -35,15 +35,16 @@ Market context:
 - Regime: {regime or "unknown"}
 - Risk level: {risk_level or "unknown"}
 - Market health: {health_label or "unknown"}
-- Blocked sectors (do not trade): {blocked_sectors or "none"}
+- Network-flagged sectors (ADVISORY — the network is cautious here; weigh against them, but you MAY trade if your own analysis is strong): {blocked_sectors or "none"}
 
 {character.persona_brief()}
 
 Candidates:
 {json.dumps(candidates, indent=2)}
 
-Review each candidate. Honor the operator's character above. Keep at most 3. Skip if sector is blocked,
-regime is bear and direction is bullish, or the move is weak (< 1%).
+Review each candidate. Honor the operator's character above. Keep at most 3. Skip if
+regime is bear and direction is bullish, or the move is weak (< 1%). Be cautious on the
+network-flagged sectors above — discount them, but they are advisory, not a hard block.
 Prefer stronger moves and sectors with tailwinds.
 
 Return a JSON array of candidates to TRADE, priority order.
