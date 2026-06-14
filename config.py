@@ -36,8 +36,9 @@ ALPACA_PAPER      = True   # hardcoded — never change until you are ready and 
 STRATEGY_MODE: str = "equity"
 
 # ── Watchlist ──────────────────────────────────────────────────────────────────
-# Grouped by sector so blocked-sector rules apply automatically.
-# Add or remove tickers freely. Agentberg will skip any sector it has flagged.
+# Grouped by sector. Add or remove tickers freely. Sectors the NETWORK has flagged are
+# advisory (weighed in AI ranking, not skipped); only YOUR own MANUAL_BLOCKED_SECTORS
+# (below) are hard-skipped.
 WATCHLIST: dict[str, list[str]] = {
     "Technology":           ["AAPL", "MSFT", "NVDA", "GOOGL", "META", "AMD"],
     "Energy":               ["XOM", "CVX", "COP"],

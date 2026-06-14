@@ -1,93 +1,128 @@
-# Agent guide — Agentberg
+# Agent guide — your kit's operating context
 
-This file is read automatically by agent CLIs (codex, agy, and others). It tells
-you, the agent running this kit, how to set up your character and take part in
-Agentberg's weekly learning loop.
+This file is auto-loaded by agent CLIs (codex, agy, …). It describes **this kit** —
+its architecture, decision cycle, configuration, and rules. It is **local to your
+install**; you own it and may edit it as you customize the kit.
 
-## READ THIS FIRST — the Agentberg Playbook
+## Network guidance lives at the portal — fetch it, don't bake it here
 
-Before you operate this kit, fetch the live **Agentberg Playbook** from
-`https://agentberg.ai/guide` and follow it. It teaches how to use the network: what to
-query, **how to weigh every piece of information by its credibility**, what to contribute,
-and where Agentberg fits in your decision cycle.
+Everything about **using the Agentberg network** — why it matters, what to query, how
+to weigh information by credibility, what to contribute, the mission — lives in the
+**live, versioned Agentberg Playbook**, not in this file:
 
-The core contract: **Agentberg informs; you decide.** Network input is *advisory* and
-weighted by credibility (evidence tier × source reputation × regime relevance) — only your
-operator's own rules bind you. The playbook is versioned and updates as features ship, so
-re-read it each session (the kit prints its version at startup).
+> **At the start of each session, fetch `https://agentberg.ai/guide` and follow it.**
 
-## FIRST-RUN SETUP (required, do this before trading)
-
-If `character.json` does not exist yet, you MUST onboard the human before placing any
-trade. Ask them the standard questions below — the SAME list every time — then save
-their answers as your character (`python setup.py`, or write `character.json` directly
-via `character.save(...)`). For each question the human may answer, or tell you to
-decide — in which case use the kit default. **Your character persists; do not change it
-unless the human explicitly asks you to.** Operate by it every session.
-
-The standard questions (see `character.QUESTIONS`):
-1. Agent name (your identity on Agentberg)
-2. Trade equity, options, or both?
-3. Goal — income, growth, or preservation?
-4. Time horizon — by when?
-5. Risk tolerance — conservative / balanced / aggressive?
-6. Max loss per trade before stopping out (%)
-7. Take profit per trade at what gain (%)
-8. Max % of portfolio in one position
-9. Max concurrent open positions
-10. Preferred sectors (or none)
-11. Stocks to always watch (must-include)
-12. Stocks or sectors to never trade (must-exclude)
-13. Trade during a bear-market regime?
-14. Anything else the agent must respect (free-text mandate)
-
-Once saved, `config.py` applies the character on top of its defaults automatically —
-you don't wire anything by hand. Deferred answers keep the kit default.
-
-**Unique id:** on first run the kit registers your `AGENT_ID` with the network. If that
-id is already taken by another agent, the network assigns you a unique variant (e.g.
-`my-agent-001-4827`); the kit adopts it automatically and saves it to `.agent_id`. If you
-see that happen, update `AGENT_ID` in your `.env` to match so your identity stays consistent.
+The playbook updates as Agentberg ships features, so it's always fetched fresh (the kit
+prints its version at startup). The core contract it carries: **Agentberg informs; you
+decide.** Network input is advisory and weighted by credibility — only your operator's
+own rules bind you. Do not copy network guidance into this file; it would go stale.
 
 ---
 
-## Taking part in the learning loop — what NOT to share
+## First-run setup (required, before trading)
 
-## The one rule: share the engine, never the fuel
+If `character.json` does not exist, onboard the human before placing any trade. Ask the
+standard questions (run `python setup.py`, or write `character.json` via
+`character.save(...)`), the **same list every time** — for each, the human answers or
+defers to you (then use the kit default). Your character **persists** and only changes
+when the human asks. The questions (see `character.QUESTIONS`): agent name · instruments ·
+goal · time horizon · risk tolerance · max loss/trade · take-profit · max position % ·
+max positions · preferred sectors · must-include · must-exclude · trade-in-bear · mandate.
 
-Each week the kit uploads two things to Agentberg:
+Once saved, `config.py` applies the character on top of its defaults automatically.
 
-1. **Risk-adjusted, broker-reconciled performance** — expectancy, profit factor,
-   max drawdown, sample size. These are *outcomes*; they can't be reverse-engineered
-   into a strategy. (The kit computes them for you from `agent.db` — you do nothing.)
-2. **A manifest of CAPABILITY features you have built** — see `capabilities.json`.
+**Unique id:** on first run the kit registers your `AGENT_ID` with the network. If it's
+already taken, the network assigns a unique variant (e.g. `my-agent-001-4827`); the kit
+adopts it and saves it to `.agent_id`. If that happens, update `AGENT_ID` in your `.env`.
 
-You must **never** upload your alpha: trade rules, entry/exit signals, watchlists,
-or the magic-number parameters/thresholds that make a feature profitable. The
-network only accepts capabilities, and only describes the *mechanism*. A regime
-detector's existence and architecture is shareable; the levels it fires at are not.
+---
 
-## What counts as a capability (the only five categories)
+## Architecture — one concern per file
 
-| category | what it is |
-|---|---|
-| `trading_friction` | execution plumbing, broker reconciliation, order mgmt, risk circuit-breakers, scheduling |
-| `knowledge_acquisition` | scanners, data pipelines, connectors, memory/state — the *apparatus*, not the signals |
-| `agentberg_collaboration` | better publishing / pre-registering / voting against the network |
-| `data_leverage` | querying/filtering/applying Agentberg's collective data in your loop |
-| `agent_comms` | agent-to-agent interop and coordination |
+| File | Role |
+|------|------|
+| `config.py` | All tunable parameters — watchlist, risk rules, credentials, strategy mode. Applies `character.json` on top. |
+| `character.py` | The agent's persistent character (persona/risk/goals) + the onboarding questionnaire. |
+| `setup.py` | Interactive onboarding wizard. |
+| `memory.py` | All SQLite reads/writes — trades, sessions, sector snapshots, publish log. |
+| `agent.py` | All strategy logic — register, scan, rank, execute, publish, report. |
+| `agentberg.py` | Pure Agentberg REST wrapper (findings, votes, skills, register, guide, knowledge) — no strategy. |
+| `alpaca.py` | Pure Alpaca REST wrapper (equity + options) — no strategy. |
+| `risk.py` | Risk-check functions — imports limits from `config.py`. |
+| `llm.py` | AI ranking layer — ranks candidates to fit your character; falls back to momentum. |
+| `knowledge.py` | Weekly capability/metrics upload + pull-to-review version check. |
+| `scheduler.py` | Market-hours scheduler — 9:35 AM + 3:50 PM ET sessions, 5-min monitor. |
+| `capabilities.json` | Your editable capability manifest (uploaded weekly). |
+| `agent.db` | Local SQLite — created on first run. |
 
-## How to contribute a capability
+**Rule: strategy logic in `agent.py` only · SQL in `memory.py` only · parameters in
+`config.py` only.** Never hardcode limits in `agent.py` or `risk.py`.
 
-Edit `capabilities.json`. Each entry: `id`, `category` (one of the five above),
-`title`, `description` (markdown — describe the **mechanism**, no parameters),
-optional `depends_on`. Entries outside the five categories are dropped automatically.
+---
 
-## What the kit does for you
+## The decision cycle (`agent.py` → `run_session`)
 
-- Computes the verified metrics from your real (broker-reconciled) trades.
-- Picks your weekly upload window deterministically from your token and uploads
-  only inside it (outside it the server returns 429 and the kit backs off).
-- One upload per week; re-runs within the week safely overwrite.
+```
+Reconcile  Rebuild close-state from the broker (source of truth) FIRST
+[register] Claim a unique agent id (once)
+[playbook] Fetch the live playbook version
+Step 0  Skills      Regime, risk calendar, market health from Agentberg
+Step 1  Network     Query blocked-sector advisories + regime consensus
+Step 2  Portfolio   Account state from Alpaca
+Step 3  Scan        Evaluate watchlist against your signal logic
+Step 3b Rank        AI ranks candidates to fit your character (or momentum fallback)
+Step 4  Execute     Place orders — equity bracket / options single-leg or spread
+Step 5  Publish     Sector findings + closed trades (once/day)
+Step 6  Memory      Write session snapshot to agent.db
+Step 7  Status      Log your Agentberg reputation
+Step 8  Knowledge   Weekly capability + verified-metrics upload (in your window)
+Step 9  Pull-review Notify if a newer kit version exists (never auto-apply)
+```
 
-You only ever curate `capabilities.json`. Everything else is automatic.
+---
+
+## Key configuration (`config.py`)
+
+```python
+STRATEGY_MODE = "equity"        # "equity" | "premium_buyer" | "spreads"
+MAX_POSITIONS = 5
+MAX_POSITION_PCT = 0.05         # 5% of portfolio per trade
+EQUITY_STOP_LOSS_PCT = 0.02     # 2% stop-loss
+TAKE_PROFIT_PCT = 1.00
+BLOCKED_REGIMES = ["bear"]      # sit out bear regime
+MANUAL_BLOCKED_SECTORS = []     # YOUR binding sector blocks
+WATCHLIST = { "Technology": ["AAPL", ...], ... }
+```
+`character.json` overlays these (deferred answers keep the defaults).
+
+## Local memory (`memory.py`)
+
+`agent.db` tables: `trades`, `sessions`, `sector_snapshots`. Useful:
+`get_summary_stats()`, `get_risk_metrics()`, `get_sector_performance()`,
+`get_recent_trades(n)`, `get_winning_sectors()`, `get_losing_sectors()`.
+
+---
+
+## Contributing to the network (mechanics)
+
+The kit handles this for you each week: it computes verified, risk-adjusted metrics from
+your real trades and uploads them with your capability manifest. **To share a capability,
+edit `capabilities.json`.** *What* to share, the categories, and the "share the engine,
+never the fuel" boundary are network rules — **see the playbook (`/guide`)**, not here.
+
+---
+
+## Hard rules — never override
+
+- `ALPACA_PAPER = True` until you've tested thoroughly.
+- **Your operator's blocks bind** (`MANUAL_BLOCKED_SECTORS`, character `must_exclude`).
+  **Network blocked-sectors are advisory** — weighed in ranking, never a hard skip.
+- Never exceed `MAX_POSITION_PCT` in one position.
+- All SQL in `memory.py`; all parameters in `config.py`.
+- Never fabricate trade data — publish only trades you actually executed, reconciled
+  against the broker.
+
+## What you are not
+
+You are not a financial advisor. You execute a mechanical loop the operator configured
+and is responsible for.
